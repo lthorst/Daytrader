@@ -1,0 +1,196 @@
+---
+title: "DAX"
+author: '`r paste("Lasse Thorst", format(Sys.time(), "%Y-%m-%d %H:%M"))`'
+output:
+  html_document:
+    anchor_sections: FALSE
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Setup -------------------------------------------------------------------
+
+rm(list = ls())
+
+library(quantmod)
+library(BatchGetSymbols)
+library(dplyr)
+library(plotly)
+library(zoo)
+library(TTR)
+library(kableExtra)
+
+# Get Data -------------------------------------------------------------------
+
+first.date <- Sys.Date() - 365
+last.date <- Sys.Date() + 1
+freq.data <- 'daily'
+
+# Dax, ^GDAXI
+# NQ100 / NASDAQ, 
+# ^XNDX: NASDAQ 100 Total Return Index 
+# ^NXTR	NASDAQ 100 Ex Tech Total Retur
+# Nasdaq composite: ^IXIC
+
+# OMXC25 ^OMXC25
+# SP500; ^GSPC
+# VIX ^VIX
+
+# Others: 
+
+tickers <- c("^GDAXI", 'ADS.DE', 'ALV.DE', 'BAS.DE', 'BAYN.DE', 'BMW.DE', 'CON.DE', '1COV.DE'
+             ,'DAI.DE', 'DHER.DE', 'DBK.DE', 'DB1.DE', 'DPW.DE', 'DTE.DE', 'DWNI.DE', 'EOAN.DE'
+             ,'FRE.DE', 'FME.DE', 'HEI.DE', 'HEN3.DE', 'IFX.DE', 'LIN.DE', 'MRK.DE', 'MTX.DE'
+             ,'MUV2.DE', 'RWE.DE', 'SAP.DE', 'SIE.DE', 'ENR.DE', 'VOW3.DE', 'VNA.DE', 
+             "AIR.DE", "BNR.DE", "HFG.DE", "PAH3.DE", "PUM.DE", "QIA.DE", "SRT3.DE", "SHL.DE", "SY1.DE", "ZAL.DE"
+             )
+
+l.out <- BatchGetSymbols(tickers = tickers, 
+                         first.date = first.date,
+                         last.date = last.date, 
+                         freq.data = freq.data,
+                         cache.folder = file.path(tempdir(), 
+                                                  'BGS_Cache') )
+
+df <- data.frame(l.out$df.tickers)
+
+df_names <- data.frame(names = c('Adidas'
+,'Allianz' ,'BASF' ,'Bayer', 'BMW', 'Continental','Covestro', 'Daimler'
+,'Delivery Hero', 'Deutsche Bank', 'Deutsche Börse', 'Deutsche Post'
+,'Deutsche Telekom','Deutsche Wohnen','E.ON','Fresenius','Fresenius Medical Care'
+,'HeidelbergCement','Henkel','Infineon Technologies', 'Linde', 'Merck'
+,'MTU Aero Engines','Munich Re','RWE','SAP','Siemens','Siemens Energy'
+,'Volkswagen Group','Vonovia', 'DAX', 
+"Airbus", "Brenntag",  "HelloFresh", "Porsche", "PUMA", "Qiagen", "Sartorius", "Siemens Healthineers",
+"Symrise", "Zalando"
+),
+symbols = c('ADS.DE' ,'ALV.DE' ,'BAS.DE' ,'BAYN.DE' ,'BMW.DE' ,'CON.DE','1COV.DE'
+,'DAI.DE' ,'DHER.DE' ,'DBK.DE' ,'DB1.DE' ,'DPW.DE' ,'DTE.DE' ,'DWNI.DE','EOAN.DE'
+,'FRE.DE' ,'FME.DE' ,'HEI.DE' ,'HEN3.DE' ,'IFX.DE' ,'LIN.DE' ,'MRK.DE','MTX.DE'
+,'MUV2.DE' ,'RWE.DE' ,'SAP.DE' ,'SIE.DE' ,'ENR.DE' ,'VOW3.DE','VNA.DE', '^GDAXI', 
+"AIR.DE", "BNR.DE", "HFG.DE", "PAH3.DE", "PUM.DE", "QIA.DE", "SRT3.DE", "SHL.DE", "SY1.DE", "ZAL.DE"
+))
+
+df <- left_join(df, df_names, by = c("ticker" = "symbols"))
+
+# Remove ret-prices
+df <- df[, -c(6, 9, 10)]
+
+# Clean up
+rm(l.out, df_names, first.date, freq.data, last.date, tickers)
+
+# Format Data -------------------------------------------------------------
+
+# Add Days
+df <- df %>% mutate(day = weekdays(ref.date)) %>% 
+  select(names, ticker, ref.date, day, everything()) 
+
+# Add factor order to days
+df$day <- ordered(df$day, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", 
+                                   "Friday"))
+
+# colnames
+colnames(df) <- c("name","ticker", "date", "day", "open", "high", "low", "close", "m_volume")
+
+# Million volumes
+df$m_volume <- round(df$m_volume / 1000000, 2)
+
+df <- df %>%  
+  mutate(daily_delta = round(close - open, 2),  
+         movement = round(high - low, 2)
+  )
+
+# Add delta-close
+df <- df %>% 
+  group_by(ticker) %>% 
+  mutate(close_delta = round(close - dplyr::lag(close, 1, order_by = date), 2)
+         )
+
+# remove digits 
+df[, 5:8] <- apply(df[, 5:8], 2, round, 0)
+
+df <- data.frame(df)
+
+# Create data-frames
+
+df_dax <- df %>% 
+  filter(name == "DAX")
+
+
+
+```
+
+## Descriptions
+
+$$Daily\_Delta = Close - Open$$ 
+$$Movement = High - Low$$
+$$Close\_Delta = Lag(Close, 1) - Close$$
+
+
+
+## DAX
+
+```{r table, echo = F}
+
+df %>% 
+  filter(name == "DAX" & date >= Sys.Date() - 31) %>% 
+  select(-ticker, -name) %>% 
+  kbl(format.args = list(big.mark = ".", decimal.mark = ",")) %>% 
+  kable_paper("hover", full_width = F, 
+              html_font = "\"Arial Narrow\", \"Source Sans Pro\", sans-serif")
+
+```
+
+
+```{r, echo = F, warning = F}
+
+n <- 100 
+
+df_temp <- df_dax %>% tail(n)
+
+p_close <- plot_ly(df_temp, x = ~date, y=~close, type = 'scatter', mode = 'lines', name = ~"Close")
+p_delta <- plot_ly(df_temp, x = ~date, y=~daily_delta, type = 'bar', name = ~"Daily Delta")
+p_movement <- plot_ly(df_temp, x = ~date, y=~movement, type = 'bar', name = ~"Movement")
+p_close_delta <- plot_ly(df_temp, x = ~date, y=~close_delta, type = 'bar', name = ~"Close Delta")
+
+p_close %>% layout(title = "Closing Price")
+p_delta %>% layout(title = "Daily Delta")
+p_movement %>% layout(title = "Movement: High - Low")
+p_close_delta %>% layout(title = "Close Delta")
+
+
+
+```
+
+```{r}
+ 
+fig <- df_dax %>% 
+  tail(30) %>% 
+  plot_ly(x = ~date, type="candlestick",
+          open = ~open, close = ~close,
+          high = ~high, low = ~low) 
+
+df_dax %>% tail(30) 
+
+fig <- fig %>% layout(title = "DAX Candlestick", 
+                       yaxis = list(range=c(min(low),max(high))))
+ 
+fig
+```
+
+### Momentum
+
+```{r, echo = F}
+
+df_dax <- df_dax %>% mutate(momentum_10 = close - round(dplyr::lag(close, 10, order_by = date), 2), 
+                  momentum_5 = close - round(dplyr::lag(close, 5, order_by = date), 2), 
+                  momentum_3 = close - round(dplyr::lag(close, 3, order_by = date), 2))
+
+```
+
+
