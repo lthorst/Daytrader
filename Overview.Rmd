@@ -1,0 +1,454 @@
+---
+title: "Overview"
+author: Lasse Thorst
+output: 
+  flexdashboard::flex_dashboard:
+    theme: united
+    orientation: columns
+    social: menu
+    source_code: embed
+---
+
+```{r setup, include = FALSE}
+
+rm(list=ls())
+
+suppressPackageStartupMessages({
+library(flexdashboard)
+library(quantmod)
+library(BatchGetSymbols)
+library(dplyr)
+library(plotly)
+library(forecast)
+library(zoo)
+library(TTR)
+library(kableExtra)
+})
+
+mova <- function(x, n)
+  {stats::filter(x, rep(1 / n, n), sides = 1)}
+
+# Get Data -------------------------------------------------------------------
+
+first.date <- Sys.Date() - 365
+last.date <- Sys.Date() + 1
+freq.data <- 'daily'
+
+# Dax, ^GDAXI
+# NQ100 / NASDAQ, 
+# ^XNDX: NASDAQ 100 Total Return Index 
+# ^NXTR	NASDAQ 100 Ex Tech Total Retur
+# Nasdaq composite: ^IXIC
+
+# OMXC25 ^OMXC25
+# SP500; ^GSPC
+# VIX ^VIX
+
+# Others: 
+
+tickers <- c("^GDAXI", 'ADS.DE', 'ALV.DE', 'BAS.DE', 'BAYN.DE', 'BMW.DE', 'CON.DE', '1COV.DE'
+             ,'DAI.DE', 'DHER.DE', 'DBK.DE', 'DB1.DE', 'DPW.DE', 'DTE.DE', 'DWNI.DE', 'EOAN.DE'
+             ,'FRE.DE', 'FME.DE', 'HEI.DE', 'HEN3.DE', 'IFX.DE', 'LIN.DE', 'MRK.DE', 'MTX.DE'
+             ,'MUV2.DE', 'RWE.DE', 'SAP.DE', 'SIE.DE', 'ENR.DE', 'VOW3.DE', 'VNA.DE', 
+             "AIR.DE", "BNR.DE", "HFG.DE", "PAH3.DE", "PUM.DE", "QIA.DE", "SRT3.DE", "SHL.DE", "SY1.DE", "ZAL.DE", "NQ=F"
+             )
+
+l.out <- BatchGetSymbols(tickers = tickers, 
+                         first.date = first.date,
+                         last.date = last.date, 
+                         freq.data = freq.data,
+                         cache.folder = file.path(tempdir(), 
+                                                  'BGS_Cache') )
+
+df <- data.frame(l.out$df.tickers)
+
+df_names <- data.frame(names = c('Adidas'
+,'Allianz' ,'BASF' ,'Bayer', 'BMW', 'Continental','Covestro', 'Daimler'
+,'Delivery Hero', 'Deutsche Bank', 'Deutsche Börse', 'Deutsche Post'
+,'Deutsche Telekom','Deutsche Wohnen','E.ON','Fresenius','Fresenius Medical Care'
+,'HeidelbergCement','Henkel','Infineon Technologies', 'Linde', 'Merck'
+,'MTU Aero Engines','Munich Re','RWE','SAP','Siemens','Siemens Energy'
+,'Volkswagen Group','Vonovia', 'DAX', 
+"Airbus", "Brenntag",  "HelloFresh", "Porsche", "PUMA", "Qiagen", "Sartorius", "Siemens Healthineers",
+"Symrise", "Zalando", "Nasdaq100"
+),
+symbols = c('ADS.DE' ,'ALV.DE' ,'BAS.DE' ,'BAYN.DE' ,'BMW.DE' ,'CON.DE','1COV.DE'
+,'DAI.DE' ,'DHER.DE' ,'DBK.DE' ,'DB1.DE' ,'DPW.DE' ,'DTE.DE' ,'DWNI.DE','EOAN.DE'
+,'FRE.DE' ,'FME.DE' ,'HEI.DE' ,'HEN3.DE' ,'IFX.DE' ,'LIN.DE' ,'MRK.DE','MTX.DE'
+,'MUV2.DE' ,'RWE.DE' ,'SAP.DE' ,'SIE.DE' ,'ENR.DE' ,'VOW3.DE','VNA.DE', '^GDAXI', 
+"AIR.DE", "BNR.DE", "HFG.DE", "PAH3.DE", "PUM.DE", "QIA.DE", "SRT3.DE", "SHL.DE", "SY1.DE", "ZAL.DE", 
+"NQ=F"
+))
+
+df <- left_join(df, df_names, by = c("ticker" = "symbols"))
+
+# Remove ret-prices
+df <- df[, -c(6, 9, 10)]
+
+# Clean up
+rm(l.out, df_names, first.date, freq.data, last.date, tickers)
+
+# Format Data -------------------------------------------------------------
+
+# Add Days
+df <- df %>% mutate(day = weekdays(ref.date)) %>% 
+  select(names, ticker, ref.date, day, everything()) 
+
+# Add factor order to days
+df$day <- ordered(df$day, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", 
+                                   "Friday"))
+
+# colnames
+colnames(df) <- c("name","ticker", "date", "day", "open", "high", "low", "close", "m_volume")
+
+# Million volumes
+df$m_volume <- round(df$m_volume / 1000000, 2)
+
+df <- df %>%  
+  mutate(daily_delta = round(close - open, 2),  
+         movement = round(high - low, 2)
+  )
+
+# Add delta-close
+df <- df %>% 
+  group_by(ticker) %>% 
+  mutate(close_delta = round(close - dplyr::lag(close, 1, order_by = date), 2)
+         )
+
+# remove digits 
+df[, 5:8] <- apply(df[, 5:8], 2, round, 0)
+
+df <- data.frame(df)
+
+# Create data-frames
+
+df_dax <- df %>% 
+  filter(name == "DAX")
+
+df_nas <- df %>% 
+  filter(name == "Nasdaq100")
+
+# Add Moving Average
+df_dax <- df_dax %>% mutate(Moving_av100 = mova(open, 100), 
+                            Moving_av50 = mova(open, 50), 
+                            Moving_av25 = mova(open, 25))
+
+df_nas <- df_nas %>% mutate(Moving_av100 = mova(open, 100), 
+                            Moving_av50 = mova(open, 50), 
+                            Moving_av25 = mova(open, 25))
+
+```
+
+DAX
+=======================================================================
+
+Column {data-width=600, .tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Open Price Graph
+
+```{r}
+
+df_temp <- df_dax %>% tail(200)
+
+min_y <- min(df_temp$open) - 500
+max_y <- max(df_temp$open) + 500
+
+fig2 <- df_temp %>% 
+plot_ly(x = ~date, y=~open, type = 'scatter', mode = 'lines', name = "Open") %>% 
+  add_lines(y = ~Moving_av100, type = "scatter", mode = "lines", name = "100 days") %>% 
+  add_lines(y = ~Moving_av50, type = "scatter", mode = "lines", name = "50 days") %>% 
+  add_lines(y = ~Moving_av25, type = "scatter", mode = "lines", name = "25 days") %>% 
+   layout(title = 'Open Price & Løbende Gennemsnit', xaxis = list(title = 'Date'),
+         yaxis = list(title = 'Open', tickformat = "digits",  
+                      range = c(min_y, max_y)))
+
+fig2
+
+
+```
+
+### Candlestick
+
+```{r, echo = F}
+
+bbands <- data.frame(date = df_dax$date, BBands(df_dax[, c("high","low","close")]))
+
+# join bands onto dax
+
+df_dax <- left_join(df_dax, bbands, by = "date")
+
+fig <- df_dax %>% 
+  tail(100) %>% 
+  plot_ly(x = ~date, type="candlestick",
+          open = ~open, close = ~close,
+          high = ~high, low = ~low) %>% 
+  layout(title = "DAX Candlesticks & Boilinger Bands", 
+         showlegend = FALSE) %>% 
+  add_lines(x = ~date, y = ~dn, line = list(color = 'red', width = 0.75), inherit = F) %>% 
+  add_lines(x = ~date, y = ~up, line = list(color = 'blue', width = 0.75), inherit = F) %>% 
+  add_lines(x = ~date, y = ~mavg, line = list(color = 'black', width = 0.75), inherit = F)
+
+fig
+
+```
+
+### Percentage Change 
+
+
+```{r}
+
+# Percentage change
+
+dax_change <- df_dax %>% 
+  select(date, day, open, close, daily_delta) %>% 
+  mutate(perc_change = round(daily_delta / open * 100, 2), 
+         p_20change = round(perc_change * 20, 2))
+
+dax_change %>% 
+    arrange(desc(date)) %>% 
+  kbl(format.args = list(big.mark = ".", decimal.mark = ",")) %>% 
+  kable_paper("hover", full_width = F, 
+              html_font = "\"Arial Narrow\", \"Source Sans Pro\", sans-serif") %>% 
+  scroll_box(width = "100%", height = "800px") 
+
+
+
+```
+
+
+### Description
+
+$$Momentum = xday - day(-1)$$
+
+Hvor X-day er hhv. 10, 5 og 3 dage. 
+
+$$Daily\_Delta = Close - Open$$ 
+***
+$$Movement = High - Low$$
+***
+$$Close\_Delta = Lag(Close, 1) - Close$$
+
+
+Column {data-width=400 .tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### DAX-Numbers
+
+```{r, echo = F}
+
+df %>% 
+  filter(name == "DAX" & date >= Sys.Date() - 31) %>% 
+  select(-ticker, -name) %>% 
+  arrange(desc(date)) %>% 
+  kbl(format.args = list(big.mark = ".", decimal.mark = ",")) %>% 
+  kable_paper("hover", full_width = F, 
+              html_font = "\"Arial Narrow\", \"Source Sans Pro\", sans-serif") %>% 
+  scroll_box(width = "100%", height = "800px") 
+  
+
+```
+
+### DAX Momentum
+
+```{r, echo = F}
+
+dax_momemtum <- df_dax %>%
+  tail(100) %>% 
+  select(name, date, day, close) %>% 
+  mutate(momentum_10 = close - round(dplyr::lag(close, 10, order_by = date), 2), 
+                  momentum_5 = close - round(dplyr::lag(close, 5, order_by = date), 2), 
+                  momentum_3 = close - round(dplyr::lag(close, 3, order_by = date), 2)) %>% 
+  select(-close)
+
+plot_ly(dax_momemtum, x = ~date, y=~momentum_10, type = 'scatter', mode = 'lines', name =~"10 Dage") %>% 
+  add_lines(y=~momentum_5, name = ~"5 Dage") %>% 
+  add_lines(y=~momentum_3, name = ~"3 Dage")  
+
+```
+
+### DAX Daily Delta
+```{r, echo = F, warning = F}
+
+n <- 100 
+
+df_temp <- df_dax %>% tail(n)
+
+p_delta <- plot_ly(df_temp, x = ~ date, y= ~daily_delta, type = 'bar', name = ~"Daily Delta")
+p_movement <- plot_ly(df_temp, x = ~ date, y= ~movement, type = 'bar', name = ~"Movement")
+p_close_delta <- plot_ly(df_temp, x = ~ date, y= ~close_delta, type = 'bar', name = ~"Close Delta")
+
+p_delta %>% layout(title = "Daily Delta")
+
+```
+
+
+### DAX Close Delta
+
+```{r}
+p_close_delta %>% layout(title = "Close Delta")
+
+```
+
+
+
+### DAX Movement
+```{r}
+p_movement %>% layout(title = "Movement: High - Low")
+
+```
+
+
+
+Nasdaq 100
+=======================================================================
+
+Column {data-width=600, .tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Open Price Graph
+
+```{r}
+
+df_temp <- df_nas %>% tail(200)
+
+min_y <- min(df_temp$open) - 500
+max_y <- max(df_temp$open) + 500
+
+fig_nas <- df_temp %>% 
+plot_ly(x = ~date, y=~open, type = 'scatter', mode = 'lines', name = "Open") %>% 
+    add_lines(y = ~Moving_av100, type = "scatter", mode = "lines", name = "100 days") %>% 
+  add_lines(y = ~Moving_av50, type = "scatter", mode = "lines", name = "50 days") %>% 
+  add_lines(y = ~Moving_av25, type = "scatter", mode = "lines", name = "25 days") %>% 
+   layout(xaxis = list(title = 'Date'),
+         yaxis = list(title = 'Open', tickformat = "digits",  
+                      range = c(min_y, max_y)))
+
+
+fig_nas
+
+
+```
+
+### Candlestick
+
+```{r, echo = F}
+
+
+bbands <- data.frame(date = df_nas$date, BBands(df_nas[, c("high","low","close")]))
+
+# join bands onto dax
+
+df_nas <- left_join(df_nas, bbands, by = "date")
+
+fig <- df_nas %>% 
+  tail(100) %>% 
+  plot_ly(x = ~date, type="candlestick",
+          open = ~open, close = ~close,
+          high = ~high, low = ~low) %>% 
+  layout(title = "Nasdaq 100 Candlesticks & Boilinger Bands", 
+         showlegend = FALSE) %>% 
+  add_lines(x = ~date, y = ~dn, line = list(color = 'red', width = 0.75), inherit = F) %>% 
+  add_lines(x = ~date, y = ~up, line = list(color = 'blue', width = 0.75), inherit = F) %>% 
+  add_lines(x = ~date, y = ~mavg, line = list(color = 'black', width = 0.75), inherit = F)
+
+fig
+
+```
+
+
+### Nasdaq Percentage Change
+
+
+```{r}
+
+# Percentage change
+
+nq_change <- df_nas %>% 
+  select(date, day, open, close, daily_delta) %>% 
+  mutate(perc_change = round(daily_delta / open * 100, 2), 
+         p_20change = round(perc_change * 20, 2))
+
+nq_change %>% 
+    arrange(desc(date)) %>% 
+  kbl(format.args = list(big.mark = ".", decimal.mark = ",")) %>% 
+  kable_paper("hover", full_width = F, 
+              html_font = "\"Arial Narrow\", \"Source Sans Pro\", sans-serif") %>% 
+  scroll_box(width = "100%", height = "800px") 
+
+
+
+```
+
+Column {data-width=400 .tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Nasdaq 100 - Numbers
+
+```{r table, echo = F}
+
+df %>% 
+  filter(name == "Nasdaq100" & date >= Sys.Date() - 31) %>% 
+  select(-ticker, -name) %>% 
+  arrange(desc(date)) %>% 
+  kbl(format.args = list(big.mark = ".", decimal.mark = ",")) %>% 
+  kable_paper("hover", full_width = F, 
+              html_font = "\"Arial Narrow\", \"Source Sans Pro\", sans-serif") %>% 
+  scroll_box(width = "100%", height = "800px")
+
+```
+
+### Momentum
+
+```{r, echo = F}
+
+nas_momemtum <- df_nas %>%
+  tail(100) %>% 
+  select(name, date, day, close) %>% 
+  mutate(momentum_10 = close - round(dplyr::lag(close, 10, order_by = date), 2), 
+                  momentum_5 = close - round(dplyr::lag(close, 5, order_by = date), 2), 
+                  momentum_3 = close - round(dplyr::lag(close, 3, order_by = date), 2)) %>% 
+  select(-close)
+
+plot_ly(nas_momemtum, x = ~date, y=~momentum_10, type = 'scatter', mode = 'lines', name =~"10 Dage") %>% 
+  add_lines(y=~momentum_5, name = ~"5 Dage") %>% 
+  add_lines(y=~momentum_3, name = ~"3 Dage")  
+
+```
+
+
+```{r, echo = F, warning = F}
+
+n <- 100 
+
+df_temp <- df_nas %>% tail(n)
+
+p_delta <- plot_ly(df_temp, x = ~ date, y= ~daily_delta, type = 'bar', name = ~"Daily Delta")
+p_movement <- plot_ly(df_temp, x = ~ date, y= ~movement, type = 'bar', name = ~"Movement")
+p_close_delta <- plot_ly(df_temp, x = ~ date, y= ~close_delta, type = 'bar', name = ~"Close Delta")
+
+
+```
+
+### Daily Delta
+```{r}
+
+p_delta %>% layout(title = "Daily Delta")
+
+
+```
+
+
+### Close Delta
+```{r}
+
+p_close_delta %>% layout(title = "Close Delta")
+
+```
+
+
+### Movement
+```{r}
+p_movement %>% layout(title = "Movement: High - Low")
+
+```
