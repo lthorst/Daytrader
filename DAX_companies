@@ -1,0 +1,26 @@
+# German Companies & DAX index
+
+tickers <- c("^GDAXI", 'ADS.DE', 'ALV.DE', 'BAS.DE', 'BAYN.DE', 'BMW.DE', 'CON.DE', '1COV.DE'
+             ,'DAI.DE', 'DHER.DE', 'DBK.DE', 'DB1.DE', 'DPW.DE', 'DTE.DE', 'DWNI.DE', 'EOAN.DE'
+             ,'FRE.DE', 'FME.DE', 'HEI.DE', 'HEN3.DE', 'IFX.DE', 'LIN.DE', 'MRK.DE', 'MTX.DE'
+             ,'MUV2.DE', 'RWE.DE', 'SAP.DE', 'SIE.DE', 'ENR.DE', 'VOW3.DE', 'VNA.DE', 
+             "AIR.DE", "BNR.DE", "HFG.DE", "PAH3.DE", "PUM.DE", "QIA.DE", "SRT3.DE", "SHL.DE", "SY1.DE", "ZAL.DE", "NQ=F"
+)
+
+
+df_names <- data.frame(names = c('Adidas'
+                                 ,'Allianz' ,'BASF' ,'Bayer', 'BMW', 'Continental','Covestro', 'Daimler'
+                                 ,'Delivery Hero', 'Deutsche Bank', 'Deutsche Börse', 'Deutsche Post'
+                                 ,'Deutsche Telekom','Deutsche Wohnen','E.ON','Fresenius','Fresenius Medical Care'
+                                 ,'HeidelbergCement','Henkel','Infineon Technologies', 'Linde', 'Merck'
+                                 ,'MTU Aero Engines','Munich Re','RWE','SAP','Siemens','Siemens Energy'
+                                 ,'Volkswagen Group','Vonovia', 'DAX', 
+                                 "Airbus", "Brenntag",  "HelloFresh", "Porsche", "PUMA", "Qiagen", "Sartorius", "Siemens Healthineers",
+                                 "Symrise", "Zalando", "Nasdaq100"
+),symbols = c('ADS.DE' ,'ALV.DE' ,'BAS.DE' ,'BAYN.DE' ,'BMW.DE' ,'CON.DE','1COV.DE'
+              ,'DAI.DE' ,'DHER.DE' ,'DBK.DE' ,'DB1.DE' ,'DPW.DE' ,'DTE.DE' ,'DWNI.DE','EOAN.DE'
+              ,'FRE.DE' ,'FME.DE' ,'HEI.DE' ,'HEN3.DE' ,'IFX.DE' ,'LIN.DE' ,'MRK.DE','MTX.DE'
+              ,'MUV2.DE' ,'RWE.DE' ,'SAP.DE' ,'SIE.DE' ,'ENR.DE' ,'VOW3.DE','VNA.DE', '^GDAXI', 
+              "AIR.DE", "BNR.DE", "HFG.DE", "PAH3.DE", "PUM.DE", "QIA.DE", "SRT3.DE", "SHL.DE", "SY1.DE", "ZAL.DE", 
+              "NQ=F"
+))
