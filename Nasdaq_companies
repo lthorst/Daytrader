@@ -1,0 +1,83 @@
+---
+title: "Nasdaq Companies"
+author: Lasse Thorst
+output: 
+  flexdashboard::flex_dashboard:
+    theme: united
+    orientation: columns
+    social: menu
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+
+rm(list=ls())
+
+suppressPackageStartupMessages({
+library(flexdashboard)
+library(quantmod)
+library(BatchGetSymbols)
+library(dplyr)
+library(plotly)
+library(forecast)
+library(zoo)
+library(TTR)
+library(kableExtra)
+})
+
+mova <- function(x, n)
+  {stats::filter(x, rep(1 / n, n), sides = 1)}
+
+# Get Data -------------------------------------------------------------------
+
+first.date <- Sys.Date() - 365
+last.date <- Sys.Date() + 1
+freq.data <- 'daily'
+
+
+us_tickers <- c( "NQ=F", 'AAPL','ADBE','ADI','ADP','ADSK','AEP','ALGN','AMAT','AMD',
+	                'AMGN','AMZN','ANSS','ASML','ATVI','AVGO','BIDU','BIIB','BKNG'
+	                ,'CDNS','CDW','CERN','CHKP','CHTR','CMCSA','COST','CPRT','CRWD',
+	                'CSCO','CSX','CTAS','CTSH','DLTR','DOCU','DXCM','EA','EBAY','EXC',
+	                'FAST','FB','FISV','FOX','FOXA','GILD','GOOG','GOOGL','HON','IDXX',
+	                'ILMN','INCY','INTC','INTU','ISRG','JD','KDP','KHC','KLAC','LRCX','LULU',
+	                'MAR','MCHP','MDLZ','MELI','MNST','MRNA','MRVL','MSFT','MTCH','MU','NFLX',
+	                'NTES','NVDA','NXPI','OKTA','ORLY','PAYX','PCAR','PDD','PEP','PTON','PYPL',
+	                'QCOM','REGN','ROST','SBUX','SGEN','SIRI','SNPS','SPLK','SWKS','TCOM','TEAM',
+	                'TMUS','TSLA','TXN','VRSK','VRSN','VRTX','WBA','WDAY','XEL','XLNX','ZM')
+	
+	
+l.out <- BatchGetSymbols(tickers = us_tickers, 
+	                         first.date = first.date,
+	                         last.date = last.date, 
+	                         freq.data = freq.data,
+	                         cache.folder = file.path(tempdir(), 
+	                                                  'BGS_Cache') )
+	
+df_us <- data.frame(l.out$df.tickers)
+	
+	# Add names
+	
+us_names <- c("Nasdaq", "Apple",  "Adobe", "Analog Devices", "Automatic Data Processing", "Autodesk", "American Electric Power Company", "Align Technology", 
+	              "Applied Materials", "Advanced Micro Devices", "Amgen", "Amazon.com", "ANSYS", "ASML", "Activision Blizzard", 
+	              "Broadcom", "Baidu Inc. AD", "Biogen", "Booking Holdings", "Cadence Design Systems", "CDW ", "Cerner ", 
+	              "Check Point Software Technologies Ltd", "Charter Communication", "Comcast ", "Costco Wholesale ", "Copart Inc", 
+	              "CrowdStrike Holding", "Cisco System", "CSX ", "Cintas ", "Cognizant Technology Solutions ", "Dollar Tree", 
+	              "DocuSign", "DexCom", "Electronic Arts", "eBay", "Exelon ", "Fastenal Compan", "Meta Platform", "Fiserv", "Fox", 
+	              "Fox ", "Gilead Sciences", "Alphabet (C)", "Alphabet (B)", "Honeywell International", "IDEXX Laboratories", 
+	              "Illumina", "Incyte Corp", "Intel", "Intuit", "Intuitive Surgical", "JD.com", "Keurig Dr Pepper", 
+	              "The Kraft Heinz Company", "KLA ", "Lam Research", "lululemon athletical", "Marriott International", 
+	              "Microchip Technology Incorporate", "Mondelez International", "MercadoLibre", "Monster Beverage", "Moderna",
+	              "Marvell Technology", "Microsoft n", "Match Group", "Micron Technology", "Netflix", "NetEase",
+	              "NVIDIA ", "NXP Semiconductors N.V", "Okt", "O-Reilly Automotive", "Paychex", "PACCAR", "Pinduoduo", 
+	              "PepsiCo", "Peloton Interactiv", "PayPal Holdings", "QUALCOMM Incorporate", "Regeneron Pharmaceuticals", "Ross Stores", "Starbucks", 
+	              "Seagen", "Sirius XM Holdings", "Synopsys", "Splunk", "Skyworks Solutions", "Trip.com", 
+	              "AtlassianPl", "T-Mobile US", "Tesla", "Texas Instruments Incorporate", "Verisk Analytics", "VeriSign",
+	              "Vertex Pharmaceuticals Incorporate", "Walgreens Boots Alliance", "Workday", "Xcel Energy", "Xilinx", "Zoom Video Communication")
+	
+	
+us_names <- data.frame(us_name = us_names, symbols = us_tickers)
+
+df_us <- left_join(df_us, us_names, by = c("ticker" = "symbols"))
+
+```
